@@ -1,6 +1,8 @@
 [package]
+authors = ["Kevin Darlington <kevin@londontrustmedia.com>"]
 name = "issueboss"
 version = "0.1.0"
-authors = ["Kevin Darlington <kevin@londontrustmedia.com>"]
 
 [dependencies]
+pulldown-cmark = "0.1.2"
+yansi = "0.4.0"
