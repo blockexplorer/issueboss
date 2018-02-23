@@ -1,5 +1,7 @@
 extern crate pulldown_cmark;
 extern crate yansi;
+#[macro_use]
+extern crate structopt;
 
 use std::fs::File;
 use std::io::{Read, stdin, stdout};
@@ -10,6 +12,50 @@ use std::error::Error;
 
 use pulldown_cmark::{Event, Parser, Tag};
 use yansi::Paint;
+use structopt::StructOpt;
+
+#[derive(StructOpt, PartialEq, Debug)]
+#[structopt(name = "issueboss")]
+/// Helps in posting issues to multiple sources.
+enum Opt {
+  #[structopt(name = "trello")]
+  Trello(TrelloOpt),
+  #[structopt(name = "gitlab")]
+  Gitlab(GitlabOpt),
+  #[structopt(name = "ast")]
+  Ast(AstOpt),
+  #[structopt(name = "parse")]
+  Parse(ParseOpt),
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+struct TrelloOpt {
+  #[structopt(short = "l", long = "list", help = "Name of the trello list")]
+  list: String,
+  #[structopt(short = "b", long = "board", help = "Name of the trello board")]
+  board: String,
+  #[structopt(name = "FILE")]
+  file: String,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+struct GitlabOpt {
+
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+/// Parse markdown and output final representation
+struct ParseOpt {
+  #[structopt(name = "FILE")]
+  file: String,
+}
+
+#[derive(StructOpt, PartialEq, Debug)]
+/// Parse markdown and output AST
+struct AstOpt {
+  #[structopt(name = "FILE")]
+  file: String,
+}
 
 #[derive(Default, Debug, Clone)]
 struct Issue {
@@ -17,17 +63,8 @@ struct Issue {
   description: String,
 }
 
-fn usage() {
-  println!("issuebose <markdown file> <board> <list>");
-  println!("Make sure to set up trello-cli: https://github.com/mheap/trello-cli");
-}
-
-fn run() -> Result<(), Box<Error>> {
-  let markdown_file = env::args().nth(1).ok_or_else(|| "missing markdown file")?;
-  let board = env::args().nth(2).ok_or_else(|| "missing board")?;
-  let list = env::args().nth(3).ok_or_else(|| "missing list")?;
-
-  let mut file = File::open(markdown_file)?;
+fn cmd_trello(opt: TrelloOpt) -> Result<(), Box<Error>> {
+  let mut file = File::open(opt.file)?;
   let mut contents = String::new();
   file.read_to_string(&mut contents)?;
 
@@ -77,8 +114,8 @@ fn run() -> Result<(), Box<Error>> {
       let output = Command::new("trello")
       .args(&[
         "add-card", 
-        "-b", &board, 
-        "-l", &list,
+        "-b", &opt.board, 
+        "-l", &opt.list,
         "-p", "bottom",
         &issue.title,
         &issue.description])
@@ -95,12 +132,62 @@ fn run() -> Result<(), Box<Error>> {
   Ok(())
 }
 
+fn cmd_gitlab(opt: GitlabOpt) -> Result<(), Box<Error>> {
+  Ok(())
+}
+
+fn cmd_parse(opt: ParseOpt) -> Result<(), Box<Error>> {
+  let mut file = File::open(opt.file)?;
+  let mut contents = String::new();
+  file.read_to_string(&mut contents)?;
+  let p = Parser::new(&contents);
+
+  for node in p {
+    println!("{:?}", node);
+  }
+
+  Ok(())
+}
+
+fn cmd_ast(opt: AstOpt) -> Result<(), Box<Error>> {
+  let mut file = File::open(opt.file)?;
+  let mut contents = String::new();
+  file.read_to_string(&mut contents)?;
+  let p = Parser::new(&contents);
+
+  for node in p {
+    println!("{:?}", node);
+  }
+
+  Ok(())
+}
+
+fn run() -> Result<(), Box<Error>> {
+  let opt = Opt::from_args();
+  //println!("{:?}", matches);
+  //return Ok(());
+
+  match opt {
+    Opt::Trello(o) => {
+      cmd_trello(o)
+    }
+    Opt::Gitlab(o) => {
+      cmd_gitlab(o)
+    }
+    Opt::Ast(o) => {
+      cmd_ast(o)
+    }
+    Opt::Parse(o) => {
+      cmd_parse(o)
+    }
+  }
+}
+
 fn main() {
   match run() {
     Ok(_) => (),
     Err(e) => {
       println!("{}", e);
-      usage();
     }
   }
 }
