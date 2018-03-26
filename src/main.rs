@@ -3,14 +3,13 @@ extern crate pulldown_cmark;
 extern crate structopt;
 extern crate yansi;
 
-use std::fs::File;
-use std::io::{stdin, stdout, Read};
+mod parse;
+
+use std::io::{stdin, stdout};
 use std::io::Write;
 use std::process::Command;
 use std::error::Error;
-use std::path::Path;
 
-use pulldown_cmark::{Event, Parser, Tag};
 use yansi::Paint;
 use structopt::StructOpt;
 
@@ -46,54 +45,10 @@ struct ParseOpt {
   file: String,
 }
 
-#[derive(Default, Debug, Clone)]
-struct Issue {
-  title: String,
-  description: String,
-}
-
-fn parse_file<P: AsRef<Path>>(file_name: P) -> Result<Vec<Issue>, Box<Error>> {
-  let mut file = File::open(file_name)?;
-  let mut contents = String::new();
-  file.read_to_string(&mut contents)?;
-
-  let p = Parser::new(&contents);
-
-  let mut issues = vec![];
-  let mut issue = Issue::default();
-  let mut text: String = String::new();
-  for node in p {
-    match node {
-      Event::Start(Tag::Header(_)) => {
-        issue = Issue::default();
-      }
-      Event::End(Tag::Header(_)) => {
-        issue.title = text;
-        text = String::new();
-      }
-      Event::Text(t) => {
-        text.push_str(&t);
-      }
-      Event::SoftBreak => {
-        text.push('\n');
-      }
-      Event::Start(Tag::Paragraph) => {}
-      Event::End(Tag::Paragraph) => {
-        issue.description = text;
-        text = String::new();
-        issues.push(issue.clone());
-      }
-      _ => (),
-    }
-  }
-
-  Ok(issues)
-}
-
 fn cmd_trello(opt: TrelloOpt) -> Result<(), Box<Error>> {
-  let issues = parse_file(opt.file)?;
+  let doc = parse::parse_file(opt.file)?;
 
-  for issue in &issues {
+  for issue in &doc.issues {
     println!(
       "{}: {}",
       Paint::white("Title").bold(),
@@ -113,7 +68,7 @@ fn cmd_trello(opt: TrelloOpt) -> Result<(), Box<Error>> {
   stdin().read_line(&mut answer)?;
 
   if answer.trim().to_lowercase() == "y" {
-    for issue in issues {
+    for issue in doc.issues {
       let output = Command::new("trello")
         .args(&[
           "add-card",
@@ -144,22 +99,8 @@ fn cmd_gitlab(_opt: GitlabOpt) -> Result<(), Box<Error>> {
 }
 
 fn cmd_parse(opt: ParseOpt) -> Result<(), Box<Error>> {
-  let issues = parse_file(opt.file)?;
-  println!("{:#?}", issues);
-
-  Ok(())
-}
-
-#[allow(dead_code)]
-fn markdown_tokens(file_name: &str) -> Result<(), Box<Error>> {
-  let mut file = File::open(file_name)?;
-  let mut contents = String::new();
-  file.read_to_string(&mut contents)?;
-  let p = Parser::new(&contents);
-
-  for node in p {
-    println!("{:?}", node);
-  }
+  let document = parse::parse_file(opt.file)?;
+  println!("{:#?}", document);
 
   Ok(())
 }
