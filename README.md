@@ -1,6 +1,6 @@
 # issueboss
 
-A tool to convert markdown into issues. Supports only trello for now.
+A tool to convert TOML into issues. Supports only trello for now.
 
 ## Installation
 
@@ -20,7 +20,7 @@ $ cargo install --git https://github.com/blockexplorer/issueboss
 ## Usage
 
 ```bash
-$ issueboss trello -b board -l list ./issues.md
+$ issueboss trello -b board -l list ./issues.toml
 ```
 
 ## Contributing

@@ -1,6 +1,6 @@
-extern crate pulldown_cmark;
 #[macro_use]
 extern crate structopt;
+extern crate toml_edit;
 extern crate yansi;
 
 mod parse;

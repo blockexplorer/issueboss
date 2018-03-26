@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::Read;
-use std::iter::Peekable;
 
-use pulldown_cmark::{Event, Parser, Tag};
+use toml_edit::{Document as TDocument, Item};
 
 pub type Metadata = HashMap<String, String>;
 
@@ -22,145 +21,41 @@ pub struct Document {
   pub issues: Vec<Issue>,
 }
 
-type StateFn<'a> = fn(&mut Machine<'a>);
+pub fn parse_file<P: AsRef<Path>>(file_name: P) -> Result<Document, Box<Error>> {
+  let mut file = File::open(file_name)?;
+  let mut contents = String::new();
+  file.read_to_string(&mut contents)?;
 
-pub struct Machine<'a> {
-  doc: Option<Document>,
-  done: bool,
-  err: Option<Box<Error>>,
+  let toml = contents.parse::<TDocument>()?;
 
-  parser: Peekable<Parser<'a>>,
-  statefn: StateFn<'a>,
-}
-
-impl<'a> Machine<'a> {
-  pub fn new(parser: Parser<'a>) -> Machine<'a> {
-    Machine {
-      doc: None,
-      parser: parser.peekable(),
-      done: false,
-      err: None,
-      statefn: Machine::start,
-    }
-  }
-
-  fn error<S: Into<String>>(&mut self, e: S) {
-    self.done = true;
-    self.err = Some(From::from(e.into()));
-  }
-
-  fn start(&mut self) {
-    self.doc = Some(Document::default());
-
-    match self.parser.peek() {
-      Some(&Event::End(Tag::Rule)) => {
-        self.statefn = Self::metadata;
+  let mut doc = Document::default();
+  for entry in toml.iter() {
+    match entry {
+      (key, &Item::Value(ref value)) => {
+        let mut h = doc.metadata.get_or_insert(HashMap::new());
+        h.insert(key.to_string(), value.as_str().unwrap().to_string());
       }
-      Some(&Event::Start(Tag::Header(_))) => {}
-      _ => {
-        self.parser.next();
+      (key, &Item::Table(ref table)) => {
+        let mut issue = Issue::default();
+        issue.title = key.to_string();
+        for tentry in table.iter() {
+          match tentry {
+            (key, &Item::Value(ref value)) => {
+              if key == "description" {
+                issue.description = value.as_str().unwrap().to_string();
+              } else {
+                let mut h = issue.metadata.get_or_insert(HashMap::new());
+                h.insert(key.to_string(), value.as_str().unwrap().to_string());
+              }
+            }
+            _ => {}
+          };
+        }
+        doc.issues.push(issue);
       }
+      _ => (),
     };
   }
 
-  // fn start_rule(&mut self) {
-  //   self.statefn = Self::end_rule;
-  // }
-
-  fn metadata(&mut self) {
-    self.parser.next();
-    self.statefn = Self::end;
-  }
-
-  fn end(&mut self) {
-    self.error("some error");
-  }
-}
-
-impl<'a> Iterator for Machine<'a> {
-  type Item = Result<(), Box<Error>>;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    if self.done {
-      if self.err.is_some() {
-        return Some(Err(self.err.take().unwrap()));
-      }
-      return None;
-    }
-
-    (self.statefn)(self);
-    Some(Ok(()))
-  }
-}
-
-pub fn parse_file<P: AsRef<Path>>(file_name: P) -> Result<Document, Box<Error>> {
-  markdown_tokens(file_name.as_ref())?;
-  let mut file = File::open(file_name)?;
-  let mut contents = String::new();
-  file.read_to_string(&mut contents)?;
-
-  let p = Parser::new(&contents);
-  let mut m = Machine::new(p);
-
-  for i in m.by_ref() {
-    i?;
-  }
-
-  let doc = m.doc.take();
-  Ok(doc.unwrap())
-}
-
-// pub fn parse_file<P: AsRef<Path>>(file_name: P) -> Result<Document, Box<Error>> {
-//   let mut file = File::open(file_name)?;
-//   let mut contents = String::new();
-//   file.read_to_string(&mut contents)?;
-
-//   let p = Parser::new(&contents);
-
-//   let mut metadata = Metadata::new();
-//   let mut issues = vec![];
-//   let mut issue = Issue::default();
-//   let mut text: String = String::new();
-//   for node in p {
-//     match node {
-//       Event::Start(Tag::Rule) => (),
-//       Event::End(Tag::Rule) => {}
-//       Event::Start(Tag::Header(_)) => {
-//         issue = Issue::default();
-//       }
-//       Event::End(Tag::Header(_)) => {
-//         issue.title = text;
-//         text = String::new();
-//       }
-//       Event::Text(t) => {
-//         text.push_str(&t);
-//       }
-//       Event::SoftBreak => {
-//         text.push('\n');
-//       }
-//       Event::Start(Tag::Paragraph) => {}
-//       Event::End(Tag::Paragraph) => {
-//         issue.description = text;
-//         text = String::new();
-//         issues.push(issue.clone());
-//       }
-//       _ => (),
-//     }
-//   }
-
-//   Ok(Document { issues: issues })
-// }
-
-#[allow(dead_code)]
-pub fn markdown_tokens<P: AsRef<Path>>(file_name: P) -> Result<(), Box<Error>> {
-  let mut file = File::open(file_name)?;
-  let mut contents = String::new();
-  file.read_to_string(&mut contents)?;
-  let p = Parser::new(&contents);
-
-  for node in p {
-    println!("{:?}", node);
-  }
-
-  Ok(())
+  Ok(doc)
 }
