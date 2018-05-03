@@ -84,7 +84,7 @@ fn cmd_trello(opt: TrelloOpt) -> Result<(), Box<Error>> {
         .output()
         .expect("failed to execute process");
 
-      if output.stderr.len() > 0 {
+      if !output.stderr.is_empty() {
         println!("{}: {}", Paint::red("error"), issue.title);
         println!("{}", String::from_utf8_lossy(&output.stderr));
       }
@@ -94,9 +94,9 @@ fn cmd_trello(opt: TrelloOpt) -> Result<(), Box<Error>> {
   Ok(())
 }
 
-fn cmd_gitlab(_opt: GitlabOpt) -> Result<(), Box<Error>> {
-  Ok(())
-}
+// fn cmd_gitlab(_opt: GitlabOpt) -> Result<(), Box<Error>> {
+//   Ok(())
+// }
 
 fn cmd_parse(opt: ParseOpt) -> Result<(), Box<Error>> {
   let document = parse::parse_file(opt.file)?;
@@ -112,8 +112,8 @@ fn run() -> Result<(), Box<Error>> {
 
   match opt {
     Opt::Trello(o) => cmd_trello(o),
-    Opt::Gitlab(o) => cmd_gitlab(o),
-    Opt::Parse(o) => cmd_parse(o),
+    Opt::Gitlab(_o) => Err("not implemented".into()), //cmd_gitlab(o),
+    Opt::Parse(o) =>  cmd_parse(o),
   }
 }
 

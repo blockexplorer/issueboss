@@ -1,8 +1,8 @@
-use std::path::Path;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
 
 use toml_edit::{Document as TDocument, Item};
 
@@ -39,17 +39,14 @@ pub fn parse_file<P: AsRef<Path>>(file_name: P) -> Result<Document, Box<Error>> 
         let mut issue = Issue::default();
         issue.title = key.to_string();
         for tentry in table.iter() {
-          match tentry {
-            (key, &Item::Value(ref value)) => {
-              if key == "description" {
-                issue.description = value.as_str().unwrap().to_string();
-              } else {
-                let mut h = issue.metadata.get_or_insert(HashMap::new());
-                h.insert(key.to_string(), value.as_str().unwrap().to_string());
-              }
+          if let (key, &Item::Value(ref value)) = tentry {
+            if key == "description" {
+              issue.description = value.as_str().unwrap().to_string();
+            } else {
+              let mut h = issue.metadata.get_or_insert(HashMap::new());
+              h.insert(key.to_string(), value.as_str().unwrap().to_string());
             }
-            _ => {}
-          };
+          }
         }
         doc.issues.push(issue);
       }
