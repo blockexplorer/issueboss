@@ -1,4 +1,6 @@
-# issueboss
+<p align="center">
+   <img src="assets/logo.png" alt="haproxy-alert" title="haproxy-alert" />
+</p>
 
 A tool to convert TOML into issues. Supports only trello for now.
 
